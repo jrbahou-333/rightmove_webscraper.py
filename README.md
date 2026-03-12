@@ -38,7 +38,7 @@ When a `RightmoveData` instance is created it automatically scrapes every page o
 
 Finally, note that not every piece of data listed on the rightmove website is scraped, instead it is just a subset of the most useful features, such as price, address, number of bedrooms, listing agent. If there are additional data items you think should be scraped, please submit an issue or even better go find the xml path and submit a pull request with the changes.
 
-## Accessing data 
+## Accessing data
 
 The following instance methods and properties are available to access the scraped data.
 
@@ -67,7 +67,7 @@ rm.results_count
 
 > `195`
 
-**Summary statistics** 
+**Summary statistics**
 
 By default shows the number of listings and average price grouped by the number of bedrooms:
 
@@ -85,6 +85,10 @@ rm.summary(by="postcode")
 
 <table border="1" class="dataframe">  <thead>    <tr style="text-align: right;">      <th></th>      <th>postcode</th>      <th>count</th>      <th>mean</th>    </tr>  </thead>  <tbody>    <tr>      <th>0</th>      <td>SW11</td>      <td>76</td>      <td>1.598841e+06</td>    </tr>    <tr>      <th>1</th>      <td>SW8</td>      <td>28</td>      <td>2.171357e+06</td>    </tr>  </tbody></table>
 
-## Legal
+## Development
 
-<a href="https://github.com/toddy86">@toddy86</a> has pointed out per the terms and conditions <a href="https://www.rightmove.co.uk/this-site/terms-of-use.html"> here</a> the use of webscrapers is unauthorised by rightmove. So please don't use this package!
+If developing the package yourself, install requirements first:
+
+```
+pip install -r requirements.txt
+```

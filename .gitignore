@@ -7,3 +7,4 @@ dist/
 build/
 *.ipynb
 !/docs
+.venv
