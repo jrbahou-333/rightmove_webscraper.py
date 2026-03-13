@@ -3,8 +3,8 @@ import json
 import pandas as pd
 import os
 
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-chat_id = os.getenv("TELEGRAM_CHAT_ID")
+bot_token = "8787264314:AAHiDFSV0Ky3B08_BFX9pCdmWq_sWSZVvhE"
+chat_id = "-5279688661"
 
 if not bot_token or not chat_id:
     raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set as environment variables.")
