@@ -6,5 +6,5 @@ dist/
 *.egg-info/
 build/
 *.ipynb
-!/docs
+!docs/*.ipynb
 .venv
