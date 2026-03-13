@@ -5,11 +5,12 @@ on:
     - cron: '0 9 * * *'  # Runs daily at 9:00 AM UTC
   workflow_dispatch:  # Allows manual triggering
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
     - name: Checkout repository
