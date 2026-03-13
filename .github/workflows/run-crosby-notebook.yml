@@ -27,15 +27,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install jupyter nbconvert
 
-    - name: Run notebook
+    - name: Run script
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         cd docs
-        jupyter nbconvert --to notebook --config='' --execute crosby_sales_data.ipynb
+        python crosby_sales_data.py
 
 
     - name: Commit and push changes
