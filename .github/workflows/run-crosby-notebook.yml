@@ -35,7 +35,8 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         cd docs
-        jupyter nbconvert --to notebook --execute crosby_sales_data.ipynb
+        jupyter nbconvert --to notebook --config='' --execute crosby_sales_data.ipynb
+
 
     - name: Commit and push changes
       run: |
