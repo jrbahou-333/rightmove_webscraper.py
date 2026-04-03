@@ -16,10 +16,11 @@ from docs.telegram_notifications import send_message, bot_token, chat_id
 
 # read in all data
 prev_data = pd.read_csv("rightmove_crosby_all_data.csv")
-
+prev_data.head()
 
 # Get new data
 new_data = rmd.get_results
+new_data.head()
 
 # anti join to get only new listings
 id_cols = ["type", "address"]
@@ -47,8 +48,8 @@ else:
 
         send_message(bot_token, chat_id, message)
 
-# now concat new listings to previous data and save
-saved_data = pd.concat([prev_data, new_listings], ignore_index=True)
+    # now concat new listings to previous data and save
+    saved_data = pd.concat([prev_data, new_listings], ignore_index=True)
 
-saved_data.to_csv("rightmove_crosby_all_data.csv", index=False)
+    saved_data.to_csv("rightmove_crosby_all_data.csv", index=False)
 
