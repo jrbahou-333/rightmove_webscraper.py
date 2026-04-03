@@ -5,15 +5,18 @@ import pandas as pd
 from rightmove_webscraper import RightmoveData
 
 # url = "https://www.rightmove.co.uk/property-for-sale/find.html?\searchType=SALE&locationIdentifier=REGION%5E94346"
+
 url = "https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=REGION%5E7515&minPrice=200000&maxPrice=350000&minBedrooms=3&propertyTypes=detached%2Csemi-detached%2Cterraced&sortType=2&channel=BUY&transactionType=BUY&displayLocationIdentifier=Crosby&index=0&radius=1.0"
 rmd = RightmoveData(url)
 print(f"Results count: {rmd.results_count}")
 
+
 # Get functions from telegram script
-import telegram_notifications
+from docs.telegram_notifications import send_message, bot_token, chat_id    
 
 # read in all data
 prev_data = pd.read_csv("rightmove_crosby_all_data.csv")
+
 
 # Get new data
 new_data = rmd.get_results
@@ -48,3 +51,4 @@ else:
 saved_data = pd.concat([prev_data, new_listings], ignore_index=True)
 
 saved_data.to_csv("rightmove_crosby_all_data.csv", index=False)
+

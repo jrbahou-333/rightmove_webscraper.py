@@ -135,8 +135,35 @@ class RightmoveData:
         compared to the displayed count.
         """
         tree = html.fromstring(self._first_page)
-        xpath = """//div[contains(@class,"ResultsCount_resultsCount__")]//p//span/text()"""
-        return int(tree.xpath(xpath)[0].replace(",", ""))
+
+        xpaths = [
+            "//div[contains(@class,'ResultsCount_resultsCount__')]//p//span/text()",
+            "//span[@class='searchHeader-resultCount']/text()",
+            "//span[contains(@class,'searchHeader-resultCount')]/text()",
+            "//h1//span/text()",
+        ]
+
+        for xpath in xpaths:
+            try:
+                value = tree.xpath(xpath)
+            except Exception:
+                continue
+            if not value:
+                continue
+            cleaned = value[0].strip().replace(",", "")
+            if not cleaned:
+                continue
+            if cleaned.isdigit():
+                return int(cleaned)
+            # Some pages use '197 properties' text in the same element
+            import re
+            m = re.search(r"(\d[\d,]*)", cleaned)
+            if m:
+                return int(m.group(1).replace(",", ""))
+
+        raise ValueError(
+            "Could not locate results count on page. Rightmove may have changed its HTML structure."
+        )
 
     @property
     def page_count(self):
@@ -247,10 +274,10 @@ class RightmoveData:
     @staticmethod
     def _clean_results(results: pd.DataFrame):
         # Reset the index:
-        results.reset_index(inplace=True, drop=True)
+        results = results.reset_index(drop=True)
 
-        # Convert price column to numeric type:
-        results["price"] = results["price"].str.replace(r"\D", "", regex=True)
+        # Convert price column to numeric type using non-chained assignment:
+        results["price"] = results["price"].astype(str).str.replace(r"\D", "", regex=True)
         results["price"] = pd.to_numeric(results["price"])
 
         # Extract short postcode area to a separate column:
@@ -272,3 +299,9 @@ class RightmoveData:
         results["search_date"] = now
 
         return results
+
+
+# url = "https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=REGION%5E7515&minPrice=200000&maxPrice=350000&minBedrooms=3&propertyTypes=detached%2Csemi-detached%2Cterraced&sortType=2&channel=BUY&transactionType=BUY&displayLocationIdentifier=Crosby&index=0&radius=1.0"
+# rmd = RightmoveData(url)
+
+# rmd.get_results.head()

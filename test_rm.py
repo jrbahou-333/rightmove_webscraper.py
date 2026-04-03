@@ -32,6 +32,7 @@ def test_sale_residential():
         assert {c, "count", "mean"}.issubset(set(df.columns))
         assert len(df) > 0
 
+test_sale_residential()
 
 def test_rent_residential():
     """Test a search on residential properties for rent."""
