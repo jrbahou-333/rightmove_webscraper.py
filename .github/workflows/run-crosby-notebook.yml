@@ -2,7 +2,7 @@ name: Run Crosby Notebook
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # Runs daily at 9:00 AM UTC
+    - cron: '0 9,12,15,18,21 * * *'  # Runs daily at 9:00 AM UTC
   workflow_dispatch:  # Allows manual triggering
 
 env:
