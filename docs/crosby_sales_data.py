@@ -28,8 +28,9 @@ new_listings = pd.merge(
     new_data,
     prev_data[["type", "address"]],
     on=id_cols,
-    how="left_anti",
-)
+    how="left",
+    indicator=True
+).loc[lambda x: x["_merge"] == "left_only"].drop(columns=["_merge"])
 
 new_listings = new_listings.drop_duplicates(subset=id_cols, keep="first")
 
