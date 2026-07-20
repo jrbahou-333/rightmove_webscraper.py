@@ -1,10 +1,11 @@
 .idea
+.vscode/
 __pycache__/
 dist/
 .ipynb_checkpoints
-/dev.ipynb
 *.egg-info/
 build/
 *.ipynb
-!docs/*.ipynb
 .venv
+.env
+.DS_Store
