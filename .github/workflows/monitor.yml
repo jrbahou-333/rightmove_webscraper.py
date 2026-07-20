@@ -12,6 +12,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
+      with:
+        # Always run this branch's code, even when triggered from the default
+        # branch (e.g. by the schedule).
+        ref: feature/adding_db_functionality
 
     - name: Set up Python
       uses: actions/setup-python@v5
