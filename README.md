@@ -35,7 +35,22 @@ src/
    TELEGRAM_BOT_TOKEN=...
    TELEGRAM_CHAT_ID=...
    ```
-3. Ensure the target table (default `crosby_properties`) exists in your database.
+3. Create the table (run once against a fresh database):
+   ```bash
+   python -m src.init_db
+   ```
+   This applies [`src/schema.sql`](src/schema.sql) (creates `crosby_properties`).
+
+## First-run seeding
+
+To avoid a burst of Telegram messages the first time you run against an empty table,
+seed it once — this records the current listings **without** sending notifications:
+
+```bash
+python -m src.monitor --seed
+```
+
+After seeding, normal runs only alert on genuinely new listings.
 
 ## Running
 
@@ -46,7 +61,9 @@ python -m src.monitor
 ```
 
 To monitor a different search, edit `SEARCH_URL` (and `TABLE_NAME` if needed) in
-[`src/monitor.py`](src/monitor.py).
+[`src/monitor.py`](src/monitor.py). **Do not** put an `index=` parameter in the search
+URL — the scraper paginates by appending its own, and a hardcoded index pins every page
+to the first 25 results.
 
 ## Scheduled runs
 

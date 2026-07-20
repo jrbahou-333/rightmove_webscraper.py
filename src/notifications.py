@@ -5,9 +5,6 @@ import requests
 bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
 chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
-if not bot_token or not chat_id:
-    raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set as environment variables.")
-
 
 def get_updates(bot_token):
     url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
@@ -16,6 +13,8 @@ def get_updates(bot_token):
 
 
 def send_message(bot_token, chat_id, message):
+    if not bot_token or not chat_id:
+        raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set to send messages.")
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,

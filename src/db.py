@@ -2,6 +2,7 @@
 # Connection details come from the DATABASE_URL environment variable, so the same
 # code works against a local Postgres or a cloud-hosted one by changing one value.
 import os
+import pandas as pd
 import psycopg2
 
 
@@ -72,7 +73,9 @@ def insert_data(conn, data, table_name):
         """
 
         for row in data.itertuples(index=False, name=None):
-            cur.execute(query, row)
+            # Convert pandas NaN/NA to None so they insert as SQL NULL, not "NaN".
+            clean_row = tuple(None if pd.isna(v) else v for v in row)
+            cur.execute(query, clean_row)
 
         conn.commit()
         print("Data inserted successfully.")
