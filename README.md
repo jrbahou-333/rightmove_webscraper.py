@@ -65,12 +65,47 @@ To monitor a different search, edit `SEARCH_URL` (and `TABLE_NAME` if needed) in
 URL — the scraper paginates by appending its own, and a hardcoded index pins every page
 to the first 25 results.
 
-## Scheduled runs
+## Scheduled runs (GitHub Actions)
 
-`.github/workflows/monitor.yml` runs the monitor daily. Set `DATABASE_URL`,
-`TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` as **GitHub Actions secrets** in the repo
-settings. The database must be reachable from GitHub's runners (a cloud-hosted Postgres),
-not a local `localhost` instance.
+`.github/workflows/monitor.yml` runs the monitor daily (09:00 UTC) and can also be
+triggered manually from the **Actions** tab (`workflow_dispatch`).
+
+Set these as **GitHub Actions repository secrets** (Settings → Secrets and variables →
+Actions):
+
+- `DATABASE_URL` — the cloud Postgres connection string (must be reachable from GitHub's
+  runners; a local `localhost` database will not work)
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+### Current deployment: testing from a branch
+
+GitHub only fires `schedule` triggers from the **default branch (`master`)**. To let us
+test against the real schedule before merging, the setup is currently split:
+
+- `monitor.yml` lives on **`master`** (so the schedule fires), but its checkout step is
+  pinned to the feature branch:
+  ```yaml
+  - uses: actions/checkout@v5
+    with:
+      ref: feature/adding_db_functionality
+  ```
+  So the scheduled/manual run executes **this branch's** code, not `master`'s.
+- Any change you want to go live must therefore land on `feature/adding_db_functionality`
+  (or re-point the `ref:`).
+
+### Merging to `master` (once tested)
+
+When ready to promote this to mainline:
+
+1. Merge `feature/adding_db_functionality` into `master`.
+2. In `.github/workflows/monitor.yml`, **remove the pinned `ref:`** from the checkout step
+   so it runs `master` normally:
+   ```yaml
+   - uses: actions/checkout@v5
+   ```
+3. Confirm the three repository secrets are still set.
+4. (Optional) delete the feature branch.
 
 ## Credits
 
