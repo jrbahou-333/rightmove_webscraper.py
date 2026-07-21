@@ -10,6 +10,9 @@ on:
 jobs:
   run-monitor:
     runs-on: ubuntu-latest
+    # DATABASE_URL / TELEGRAM_* are stored as environment secrets on the "env"
+    # environment; the job must declare it to be able to read them.
+    environment: env
 
     steps:
     - name: Checkout repository
