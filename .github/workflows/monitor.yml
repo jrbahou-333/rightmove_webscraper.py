@@ -2,7 +2,9 @@ name: Rightmove monitor
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # Runs daily at 9:00 AM UTC
+    # Every 2 hours, 07:00-21:00 UTC == 08:00-22:00 UK time during BST.
+    # GitHub cron is always UTC; this shifts to 07:00-21:00 local in winter (GMT).
+    - cron: '0 7-21/2 * * *'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

@@ -67,8 +67,13 @@ to the first 25 results.
 
 ## Scheduled runs (GitHub Actions)
 
-`.github/workflows/monitor.yml` runs the monitor daily (09:00 UTC) and can also be
-triggered manually from the **Actions** tab (`workflow_dispatch`).
+`.github/workflows/monitor.yml` runs the monitor **every 2 hours between 07:00 and 21:00
+UTC** (= 08:00–22:00 UK time during BST), and can also be triggered manually from the
+**Actions** tab (`workflow_dispatch`).
+
+> GitHub Actions cron is always **UTC** — it has no timezone support. The schedule above
+> matches 08:00–22:00 UK time during BST; after the clocks go back (GMT) it runs
+> 07:00–21:00 local. Shift the hours in the cron if you want to correct for that.
 
 Set these as **GitHub Actions repository secrets** (Settings → Secrets and variables →
 Actions):
