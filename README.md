@@ -75,13 +75,23 @@ UTC** (= 08:00–22:00 UK time during BST), and can also be triggered manually f
 > matches 08:00–22:00 UK time during BST; after the clocks go back (GMT) it runs
 > 07:00–21:00 local. Shift the hours in the cron if you want to correct for that.
 
-Set these as **GitHub Actions repository secrets** (Settings → Secrets and variables →
-Actions):
+These are stored as **environment secrets** on a GitHub environment named **`env`**
+(Settings → Environments → `env`):
 
 - `DATABASE_URL` — the cloud Postgres connection string (must be reachable from GitHub's
   runners; a local `localhost` database will not work)
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
+
+Because they are environment (not repository) secrets, the workflow job **must** declare
+the environment or the values arrive empty:
+
+```yaml
+jobs:
+  run-monitor:
+    runs-on: ubuntu-latest
+    environment: env
+```
 
 ### Current deployment: testing from a branch
 
