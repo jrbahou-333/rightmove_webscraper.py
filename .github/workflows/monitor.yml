@@ -17,10 +17,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
-      with:
-        # Run the monitor from the feature branch's code, even though this
-        # workflow lives on the default branch so the schedule can trigger it.
-        ref: feature/adding_db_functionality
 
     - name: Set up Python
       uses: actions/setup-python@v5
