@@ -9,11 +9,19 @@
 # its own for pagination, and a hardcoded index pins every page to the first
 # 25 results.
 SEARCHES = {
+    # Crosby, "this area only" (radius=0.0).
     "crosby": (
         "https://www.rightmove.co.uk/property-for-sale/find.html"
         "?locationIdentifier=REGION%5E7515&minPrice=200000&maxPrice=350000"
         "&minBedrooms=3&propertyTypes=detached%2Csemi-detached%2Cterraced"
         "&sortType=2&channel=BUY&transactionType=BUY"
-        "&displayLocationIdentifier=Crosby&radius=1.0"
+        "&displayLocationIdentifier=Crosby&radius=0.0"
+    ),
+    # Formby Station, Merseyside + 1 mile radius.
+    "formby_station": (
+        "https://www.rightmove.co.uk/property-for-sale/find.html"
+        "?locationIdentifier=STATION%5E3584&minPrice=200000&maxPrice=350000"
+        "&minBedrooms=3&propertyTypes=detached%2Csemi-detached%2Cterraced"
+        "&sortType=2&channel=BUY&transactionType=BUY&radius=1.0"
     ),
 }
