@@ -1,5 +1,5 @@
-# Scrape a Rightmove search, compare against listings stored in the database,
-# and send any new listings to Telegram.
+# Scrape the configured Rightmove searches, compare against listings stored in
+# the database, and send any new listings to Telegram.
 import argparse
 
 import pandas as pd
@@ -9,23 +9,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rightmove_webscraper.scraper import RightmoveData
+from src.searches import SEARCHES
 from src.notifications import send_message, bot_token, chat_id
 from src.db import connect_db, query_db, insert_data, end_connection
 
-# The Rightmove search to monitor.
-# NOTE: do not include an `index=` parameter here — the scraper appends its own
-# for pagination, and a hardcoded index pins every page to the first 25 results.
-SEARCH_URL = "https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=REGION%5E7515&minPrice=200000&maxPrice=350000&minBedrooms=3&propertyTypes=detached%2Csemi-detached%2Cterraced&sortType=2&channel=BUY&transactionType=BUY&displayLocationIdentifier=Crosby&radius=1.0"
-
-TABLE_NAME = "crosby_properties"
+TABLE_NAME = "properties"
 
 
-def scrape_listings():
-    """Scrape the search URL and return a cleaned DataFrame of current listings."""
-    rmd = RightmoveData(SEARCH_URL)
+def scrape_listings(search_url):
+    """Scrape a search URL and return a cleaned DataFrame of current listings."""
+    rmd = RightmoveData(search_url)
     print(f"Results count: {rmd.results_count}")
 
-    data = rmd.get_results
+    # Copy so our cleanup below doesn't trigger SettingWithCopyWarning.
+    data = rmd.get_results.copy()
 
     # Extract the property ID from the listing URL.
     data["property_id"] = data["url"].str.extract(r"/properties/(\d+)#/")
@@ -52,43 +49,53 @@ def scrape_listings():
 
 
 def main(seed=False):
-    """Run the monitor.
+    """Run the monitor over every search in SEARCHES.
 
     Args:
         seed (bool): one-time initial seeding. Record all current listings
             WITHOUT sending notifications, so the first real run doesn't send a
-            burst of messages for listings that already exist.
+            burst of messages for listings that already exist. Also use this
+            after adding a new search to src/searches.py.
     """
     conn = connect_db()
 
-    # Read existing listings from the DB.
-    prev_data, col_names = query_db(conn, f"select * from {TABLE_NAME};")
-    prev_df = pd.DataFrame(prev_data, columns=col_names)
-    prev_df["property_id"] = prev_df["property_id"].astype(str)
+    # Read all known property IDs once; the anti-join is global, so a property
+    # already found by one search is never re-notified by an overlapping one.
+    rows, _ = query_db(conn, f"select property_id from {TABLE_NAME};")
+    known_ids = {str(row[0]) for row in rows}
 
-    # Scrape and keep only listings not already stored.
-    new_data = scrape_listings()
-    new_listings = new_data[~new_data["property_id"].isin(prev_df["property_id"])]
+    total_new = 0
+    for search_name, search_url in SEARCHES.items():
+        print(f"--- Search: {search_name} ---")
+        data = scrape_listings(search_url)
+        new_listings = data[~data["property_id"].isin(known_ids)].copy()
 
-    if seed:
-        # Silent seeding: record current listings, no messages.
         if new_listings.empty:
-            print("Seed complete: nothing to record (table already up to date).")
-        else:
-            insert_data(conn, new_listings, TABLE_NAME)
-            print(f"Seed complete: recorded {len(new_listings)} listings, no notifications sent.")
-    elif new_listings.empty:
-        send_message(bot_token, chat_id, "No new listings found.")
-    else:
-        for _, new_listing in new_listings.iterrows():
-            message = (
-                "New property for sale\n"
-                f"Address: {new_listing['address']}\n"
-                f"URL: {new_listing['url']}"
-            )
-            send_message(bot_token, chat_id, message)
+            print(f"{search_name}: no new listings.")
+            continue
+
+        new_listings["search_name"] = search_name
+        # Track these IDs so overlapping searches later in the run skip them.
+        known_ids.update(new_listings["property_id"])
+
+        if not seed:
+            for _, new_listing in new_listings.iterrows():
+                message = (
+                    "New property for sale\n"
+                    f"Search: {search_name}\n"
+                    f"Address: {new_listing['address']}\n"
+                    f"URL: {new_listing['url']}"
+                )
+                send_message(bot_token, chat_id, message)
 
         insert_data(conn, new_listings, TABLE_NAME)
+        total_new += len(new_listings)
+        print(f"{search_name}: recorded {len(new_listings)} new listings.")
+
+    if seed:
+        print(f"Seed complete: recorded {total_new} listings, no notifications sent.")
+    elif total_new == 0:
+        send_message(bot_token, chat_id, "No new listings found.")
 
     end_connection(conn)
 
@@ -98,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed",
         action="store_true",
-        help="One-time initial seeding: record current listings without sending notifications.",
+        help="Record current listings without sending notifications (initial seeding, or after adding a new search).",
     )
     args = parser.parse_args()
     main(seed=args.seed)

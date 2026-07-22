@@ -1,15 +1,17 @@
 # Rightmove listing monitor
 
-Scrapes a [Rightmove](https://www.rightmove.co.uk/) property search, compares the results
-against listings already stored in a Postgres database, and sends any **new** listings to
-Telegram. Designed to run on a schedule (GitHub Actions) so you get notified when a
-property matching your search first appears.
+Scrapes one or more [Rightmove](https://www.rightmove.co.uk/) property searches, compares
+the results against listings already stored in a Postgres database, and sends any **new**
+listings to Telegram. Designed to run on a schedule (GitHub Actions) so you get notified
+when a property matching your search first appears.
 
 ## How it works
 
-1. Scrape the configured Rightmove search URL using the `rightmove_webscraper` engine.
-2. Read the existing listings from the database.
-3. Anti-join to find listings that aren't in the database yet.
+1. Scrape each Rightmove search in [`src/searches.py`](src/searches.py) using the
+   `rightmove_webscraper` engine.
+2. Read the known property IDs from the database (one shared `properties` table).
+3. Anti-join to find listings that aren't in the database yet. The anti-join is global
+   on property ID, so overlapping searches never notify twice for the same property.
 4. Send each new listing to Telegram and insert it into the database.
 
 ## Project layout
@@ -18,9 +20,12 @@ property matching your search first appears.
 rightmove_webscraper/   # scraping engine (RightmoveData)
 src/
 ├── monitor.py          # entrypoint: scrape → compare → notify → store
+├── searches.py         # the searches to monitor (name → Rightmove URL)
 ├── db.py               # Postgres helpers (connection via DATABASE_URL)
-└── notifications.py    # Telegram helpers
-.github/workflows/monitor.yml   # daily scheduled run
+├── notifications.py    # Telegram helpers
+├── init_db.py          # apply schema.sql to a fresh database
+└── migrate_db.py       # one-time migration from the old crosby_properties table
+.github/workflows/monitor.yml   # scheduled run
 ```
 
 ## Setup
@@ -39,7 +44,14 @@ src/
    ```bash
    python -m src.init_db
    ```
-   This applies [`src/schema.sql`](src/schema.sql) (creates `crosby_properties`).
+   This applies [`src/schema.sql`](src/schema.sql) (creates the shared `properties` table).
+
+   **Upgrading from the old per-location layout?** Run the one-time migration instead —
+   it creates `properties` and copies the rows from `crosby_properties` (which is left in
+   place for you to drop manually once satisfied):
+   ```bash
+   python -m src.migrate_db
+   ```
 
 ## First-run seeding
 
@@ -60,10 +72,24 @@ From the repo root:
 python -m src.monitor
 ```
 
-To monitor a different search, edit `SEARCH_URL` (and `TABLE_NAME` if needed) in
-[`src/monitor.py`](src/monitor.py). **Do not** put an `index=` parameter in the search
-URL — the scraper paginates by appending its own, and a hardcoded index pins every page
-to the first 25 results.
+## Adding a location
+
+1. Build the search on rightmove.co.uk and copy the results-page URL.
+2. Add an entry to the `SEARCHES` dict in [`src/searches.py`](src/searches.py):
+   ```python
+   "formby": "https://www.rightmove.co.uk/property-for-sale/find.html?...",
+   ```
+   The key is stored in the DB (`search_name`) and shown in Telegram messages.
+3. Seed the new search once so its existing listings don't arrive as a burst of
+   notifications:
+   ```bash
+   python -m src.monitor --seed
+   ```
+   (Seeding is a no-op for searches that are already up to date.)
+4. Commit and push — the scheduled run picks it up from there.
+
+**Do not** put an `index=` parameter in any search URL — the scraper paginates by
+appending its own, and a hardcoded index pins every page to the first 25 results.
 
 ## Scheduled runs (GitHub Actions)
 
