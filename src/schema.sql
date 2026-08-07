@@ -12,3 +12,18 @@ CREATE TABLE IF NOT EXISTS properties (
     property_type text,
     url           text
 );
+
+-- Denormalized cache of the latest price, for a cheap lookup each monitor run.
+-- Nullable so existing rows survive the ALTER; NULL means "no price on record yet".
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS current_price integer;
+
+-- Full price history: one row per observed price change (including the first).
+CREATE TABLE IF NOT EXISTS price_history (
+    id            serial PRIMARY KEY,
+    property_id   text NOT NULL REFERENCES properties(property_id),
+    price         integer NOT NULL,
+    recorded_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_price_history_property_recorded
+    ON price_history (property_id, recorded_at DESC);

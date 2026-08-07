@@ -38,7 +38,7 @@ def scrape_listings(search_url):
     )
 
     # Drop columns not stored in the DB.
-    data = data.drop(columns=["search_date", "agent_url", "full_postcode", "price"])
+    data = data.drop(columns=["search_date", "agent_url", "full_postcode"])
 
     # Rename columns to match the DB schema.
     data = data.rename(columns={
@@ -47,6 +47,24 @@ def scrape_listings(search_url):
     })
 
     return data
+
+
+def _record_price(conn, property_id, price):
+    """Insert a price_history row and update properties.current_price to match."""
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO price_history (property_id, price) VALUES (%s, %s);",
+            (property_id, price),
+        )
+        cur.execute(
+            "UPDATE properties SET current_price = %s WHERE property_id = %s;",
+            (price, property_id),
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print("Error recording price:", e)
 
 
 def main(seed=False):
@@ -60,48 +78,107 @@ def main(seed=False):
     """
     conn = connect_db()
 
-    # Read all known property IDs once; the anti-join is global, so a property
-    # already found by one search is never re-notified by an overlapping one.
-    rows, _ = query_db(conn, f"select property_id from {TABLE_NAME};")
-    known_ids = {str(row[0]) for row in rows}
+    # Read all known property IDs and their last-seen price once; the anti-join
+    # is global, so a property already found by one search is never re-notified
+    # by an overlapping one.
+    rows, _ = query_db(conn, f"SELECT property_id, current_price FROM {TABLE_NAME};")
+    known_prices = {str(row[0]): row[1] for row in rows}
+    known_ids = set(known_prices.keys())
 
     total_new = 0
+    total_drops = 0
     for search_name, search_url in SEARCHES.items():
         print(f"--- Search: {search_name} ---")
         data = scrape_listings(search_url)
         new_listings = data[~data["property_id"].isin(known_ids)].copy()
+        existing_listings = data[data["property_id"].isin(known_ids)].copy()
 
+        # --- New listings ---
         if new_listings.empty:
             print(f"{search_name}: no new listings.")
-            continue
+        else:
+            new_listings["search_name"] = search_name
+            # Track these IDs so overlapping searches later in the run skip them.
+            known_ids.update(new_listings["property_id"])
 
-        new_listings["search_name"] = search_name
-        # Track these IDs so overlapping searches later in the run skip them.
-        known_ids.update(new_listings["property_id"])
+            if not seed:
+                for _, new_listing in new_listings.iterrows():
+                    price_line = (
+                        f"Price: £{new_listing['price']:,.0f}\n"
+                        if pd.notnull(new_listing["price"])
+                        else ""
+                    )
+                    message = (
+                        "New property for sale\n"
+                        f"Search: {search_name}\n"
+                        f"{price_line}"
+                        f"Address: {new_listing['address']}\n"
+                        f"URL: {new_listing['url']}"
+                    )
+                    send_message(bot_token, chat_id, message)
 
-        if not seed:
+            insert_df = new_listings.rename(columns={"price": "current_price"})
+            insert_data(conn, insert_df, TABLE_NAME)
+
             for _, new_listing in new_listings.iterrows():
-                message = (
-                    "New property for sale\n"
-                    f"Search: {search_name}\n"
-                    f"Address: {new_listing['address']}\n"
-                    f"URL: {new_listing['url']}"
-                )
-                send_message(bot_token, chat_id, message)
+                if pd.notnull(new_listing["price"]):
+                    price = int(new_listing["price"])
+                    _record_price(conn, new_listing["property_id"], price)
+                    known_prices[new_listing["property_id"]] = price
 
-        insert_data(conn, new_listings, TABLE_NAME)
-        total_new += len(new_listings)
-        print(f"{search_name}: recorded {len(new_listings)} new listings.")
+            total_new += len(new_listings)
+            print(f"{search_name}: recorded {len(new_listings)} new listings.")
+
+        # --- Existing listings: check for price changes ---
+        drops_this_search = 0
+        for _, listing in existing_listings.iterrows():
+            if pd.isna(listing["price"]):
+                continue
+            pid = listing["property_id"]
+            scraped_price = int(listing["price"])
+            stored_price = known_prices.get(pid)
+
+            if stored_price is None:
+                # Legacy property with no price on record yet (e.g. right after
+                # the price-tracking migration) — record silently, no notification.
+                _record_price(conn, pid, scraped_price)
+                known_prices[pid] = scraped_price
+                continue
+
+            if scraped_price == stored_price:
+                continue
+
+            _record_price(conn, pid, scraped_price)
+            known_prices[pid] = scraped_price
+
+            if scraped_price < stored_price:
+                drop = stored_price - scraped_price
+                pct = drop / stored_price * 100
+                drops_this_search += 1
+                if not seed:
+                    message = (
+                        "Price drop!\n"
+                        f"Address: {listing['address']}\n"
+                        f"Was: £{stored_price:,}\n"
+                        f"Now: £{scraped_price:,}\n"
+                        f"Drop: £{drop:,} ({pct:.1f}%)\n"
+                        f"URL: {listing['url']}"
+                    )
+                    send_message(bot_token, chat_id, message)
+
+        if drops_this_search:
+            print(f"{search_name}: {drops_this_search} price drop(s) recorded.")
+        total_drops += drops_this_search
 
     if seed:
         print(f"Seed complete: recorded {total_new} listings, no notifications sent.")
-    elif total_new == 0:
+    elif total_new == 0 and total_drops == 0:
         # Only notify on the last scheduled run of the day (21:00 UTC) to reduce noise.
         current_hour = datetime.now(timezone.utc).hour
         if current_hour >= 21:
-            send_message(bot_token, chat_id, "No new listings found today.")
+            send_message(bot_token, chat_id, "No new listings or price changes found today.")
         else:
-            print("No new listings — skipping notification (not last run of the day).")
+            print("No new listings or price changes — skipping notification (not last run of the day).")
 
     end_connection(conn)
 
