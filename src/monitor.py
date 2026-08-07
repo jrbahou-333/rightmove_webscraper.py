@@ -1,6 +1,7 @@
 # Scrape the configured Rightmove searches, compare against listings stored in
 # the database, and send any new listings to Telegram.
 import argparse
+from datetime import datetime, timezone
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -95,7 +96,12 @@ def main(seed=False):
     if seed:
         print(f"Seed complete: recorded {total_new} listings, no notifications sent.")
     elif total_new == 0:
-        send_message(bot_token, chat_id, "No new listings found.")
+        # Only notify on the last scheduled run of the day (21:00 UTC) to reduce noise.
+        current_hour = datetime.now(timezone.utc).hour
+        if current_hour >= 21:
+            send_message(bot_token, chat_id, "No new listings found today.")
+        else:
+            print("No new listings — skipping notification (not last run of the day).")
 
     end_connection(conn)
 
