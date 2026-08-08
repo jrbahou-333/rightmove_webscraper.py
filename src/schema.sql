@@ -27,3 +27,12 @@ CREATE TABLE IF NOT EXISTS price_history (
 
 CREATE INDEX IF NOT EXISTS idx_price_history_property_recorded
     ON price_history (property_id, recorded_at DESC);
+
+-- Log of "new listing" / "price drop" notifications actually sent. The monitor
+-- runs as a separate process every 2 hours, so this is how the last run of the
+-- day knows whether an earlier run already found something today.
+CREATE TABLE IF NOT EXISTS notification_log (
+    id          serial PRIMARY KEY,
+    kind        text NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now()
+);

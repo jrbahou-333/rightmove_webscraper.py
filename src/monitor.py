@@ -67,6 +67,33 @@ def _record_price(conn, property_id, price):
         print("Error recording price:", e)
 
 
+def _log_notification(conn, kind):
+    """Record that a 'new_listing' or 'price_drop' notification was sent."""
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO notification_log (kind) VALUES (%s);", (kind,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print("Error logging notification:", e)
+
+
+def _found_something_today(conn):
+    """Whether a new_listing/price_drop notification has already gone out today (UTC).
+
+    Each cron run is a separate process, so this is how the last run of the day
+    knows whether an earlier run already found something worth notifying about.
+    """
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT count(*) FROM notification_log WHERE kind IN ('new_listing', 'price_drop') AND created_at >= %s;",
+        (start_of_day,),
+    )
+    return cur.fetchone()[0] > 0
+
+
 def main(seed=False):
     """Run the monitor over every search in SEARCHES.
 
@@ -116,6 +143,7 @@ def main(seed=False):
                         f"URL: {new_listing['url']}"
                     )
                     send_message(bot_token, chat_id, message)
+                    _log_notification(conn, "new_listing")
 
             insert_df = new_listings.rename(columns={"price": "current_price"})
             insert_data(conn, insert_df, TABLE_NAME)
@@ -165,6 +193,7 @@ def main(seed=False):
                         f"URL: {listing['url']}"
                     )
                     send_message(bot_token, chat_id, message)
+                    _log_notification(conn, "price_drop")
 
         if drops_this_search:
             print(f"{search_name}: {drops_this_search} price drop(s) recorded.")
@@ -173,10 +202,14 @@ def main(seed=False):
     if seed:
         print(f"Seed complete: recorded {total_new} listings, no notifications sent.")
     elif total_new == 0 and total_drops == 0:
-        # Only notify on the last scheduled run of the day (21:00 UTC) to reduce noise.
+        # Only notify on the last scheduled run of the day (21:00 UTC) to reduce noise,
+        # and only if nothing was found by an earlier run today either.
         current_hour = datetime.now(timezone.utc).hour
         if current_hour >= 21:
-            send_message(bot_token, chat_id, "No new listings or price changes found today.")
+            if _found_something_today(conn):
+                print("Nothing found this run, but an earlier run today already found something — skipping notification.")
+            else:
+                send_message(bot_token, chat_id, "No new listings or price changes found today.")
         else:
             print("No new listings or price changes — skipping notification (not last run of the day).")
 
