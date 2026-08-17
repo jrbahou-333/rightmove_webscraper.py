@@ -80,6 +80,17 @@ python -m src.monitor
    "formby": "https://www.rightmove.co.uk/property-for-sale/find.html?...",
    ```
    The key is stored in the DB (`search_name`) and shown in Telegram messages.
+
+   For a radius around a train station there is a helper — look the station up in
+   Rightmove's typeahead (`https://los.rightmove.co.uk/typeahead?query=mossley+hill`)
+   and take the `id` of the match whose `type` is `STATION`:
+   ```python
+   "mossley_hill_station": _station_search("6404", "1"),
+   ```
+   Note that `_station_search` searches **detached and semi-detached only**, whereas
+   the older `crosby` / `formby_station` URLs also include terraced. Rightmove only
+   accepts its own dropdown radii (`0.25`, `0.5`, `1`, `3`, ...) — anything else,
+   such as `0.75`, makes the results page fail to load.
 3. Seed the new search once so its existing listings don't arrive as a burst of
    notifications:
    ```bash
